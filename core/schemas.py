@@ -2,7 +2,8 @@
 Shared Pydantic models used across ingestion, RAG, and API layers.
 """
 from typing import Literal
-from pydantic import BaseModel
+
+from pydantic import BaseModel, Field
 
 
 # ── Chunk metadata stored in Qdrant ──────────────────────────────────────────
@@ -18,7 +19,7 @@ class ChunkMetadata(BaseModel):
 # ── API request / response shapes ────────────────────────────────────────────
 
 class ChatRequest(BaseModel):
-    question: str
+    question: str = Field(..., min_length=1, max_length=2000)
     role: str = ""   # ignored — role is always read from the JWT token
 
 

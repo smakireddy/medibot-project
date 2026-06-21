@@ -34,6 +34,7 @@ data/qdrant_storage/
 frontend/.next/
 node_modules/
 frontend/out/
+frontend/.env.local
 
 # Model cache (large)
 .cache/

@@ -1,4 +1,7 @@
+import warnings
 from typing import Literal
+
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -44,6 +47,17 @@ class Settings(BaseSettings):
     # ── Retrieval knobs ───────────────────────────────────────────────────────
     retrieval_top_k: int = 10   # candidates fetched from Qdrant
     rerank_top_n: int = 3       # final chunks passed to LLM
+
+    @model_validator(mode="after")
+    def _warn_insecure_defaults(self) -> "Settings":
+        _KNOWN_WEAK_SECRET = "medibot-dev-secret-change-me"
+        if self.jwt_secret == _KNOWN_WEAK_SECRET or len(self.jwt_secret) < 32:
+            warnings.warn(
+                "JWT_SECRET is set to an insecure default. "
+                "Set a strong random secret (≥32 chars) in your .env before deploying.",
+                stacklevel=2,
+            )
+        return self
 
 
 settings = Settings()

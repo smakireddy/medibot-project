@@ -11,6 +11,7 @@ and cached for the process lifetime — always accurate, zero maintenance.
 """
 import re
 import sqlite3
+import warnings
 from functools import lru_cache
 from pathlib import Path
 
@@ -27,11 +28,19 @@ _ENUM_COLUMNS: dict[str, list[str]] = {
 }
 
 
-def _get_connection() -> sqlite3.Connection:
+# Only SELECT and WITH (CTEs) are permitted — no DML or DDL
+_SELECT_ONLY = re.compile(r"^\s*(SELECT|WITH)\b", re.IGNORECASE)
+
+
+def _get_connection(readonly: bool = False) -> sqlite3.Connection:
     db_path = Path(settings.db_path)
     if not db_path.exists():
         raise FileNotFoundError(f"Database not found: {db_path.resolve()}")
-    conn = sqlite3.connect(str(db_path))
+    if readonly:
+        uri = f"file:{db_path.resolve()}?mode=ro"
+        conn = sqlite3.connect(uri, uri=True)
+    else:
+        conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -43,7 +52,7 @@ def _build_schema_context() -> str:
     Called once; result cached for process lifetime.
     If the DB schema changes, restart the process to pick it up.
     """
-    conn = _get_connection()
+    conn = _get_connection(readonly=True)
     cur = conn.cursor()
     lines: list[str] = ["Database: mediassist.db (SQLite)\n"]
 
@@ -92,7 +101,9 @@ def _extract_sql(raw: str) -> str:
 
 def _execute_sql(sql: str) -> str:
     """Execute the SQL and return results as a plain text table."""
-    conn = _get_connection()
+    if not _SELECT_ONLY.match(sql):
+        return "SQL execution error: only SELECT queries are permitted."
+    conn = _get_connection(readonly=True)
     try:
         cur = conn.cursor()
         cur.execute(sql)

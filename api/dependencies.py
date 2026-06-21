@@ -10,6 +10,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError
 
 from api.auth import decode_token
+from core.access import ROLE_COLLECTIONS
 
 _bearer = HTTPBearer()
 
@@ -25,6 +26,11 @@ def get_current_role(
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token missing role claim",
+            )
+        if role not in ROLE_COLLECTIONS:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Token contains an unrecognised role",
             )
         return role
     except JWTError:
