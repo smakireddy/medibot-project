@@ -1,0 +1,39 @@
+# Environment & secrets
+.env
+*.env
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+
+# OS
+.DS_Store
+
+# Logs
+.logs/
+
+# IDE
+.claude/
+.idea/
+.vscode/
+
+# Data — generated/binary artifacts (source PDFs are kept)
+data/db/
+data/raw/
+data/qdrant_storage/
+
+# Next.js
+frontend/.next/
+node_modules/
+frontend/out/
+
+# Model cache (large)
+.cache/
