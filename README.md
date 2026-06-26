@@ -301,8 +301,8 @@ medibot_project/
 
 - Python 3.10+
 - Node.js 18+
-- Docker (for local Qdrant)
-- A Hugging Face access token (`HF_TOKEN`) for the Inference API
+- A [Qdrant Cloud](https://cloud.qdrant.io) cluster (free tier works)
+- A [Groq API key](https://console.groq.com/keys) (free tier works)
 
 ### 1. Clone & configure
 
@@ -310,43 +310,39 @@ medibot_project/
 git clone <your-public-repo-url>
 cd medibot_project
 cp .env.example .env
-# edit .env and set HF_TOKEN, QDRANT_URL, etc.
+# edit .env — set GROQ_API_KEY, QDRANT_URL, QDRANT_API_KEY, and JWT_SECRET
 ```
 
-`.env` keys:
+Key `.env` fields:
 
 ```
-HF_TOKEN=hf_xxx
-QDRANT_URL=http://localhost:6333
-QDRANT_COLLECTION=medibot
+LLM_PROVIDER=groq
+GROQ_API_KEY=gsk_...
+
+QDRANT_URL=https://<your-cluster>.qdrant.io
+QDRANT_API_KEY=<your-qdrant-api-key>
+
+JWT_SECRET=<a-random-32-char-string>
 DB_PATH=data/db/mediassist.db
 ```
 
-### 2. Start Qdrant
-
-```bash
-docker run -p 6333:6333 -p 6334:6334 -v $(pwd)/qdrant_storage:/qdrant/storage qdrant/qdrant
-```
-
-### 3. Backend
+### 2. Backend
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
-# One-time ingestion (downloads models on first run)
-python -m ingestion.ingest
+# One-time ingestion (downloads embedding/reranker models on first run)
+./launch.sh --ingest
 
 # Run the API
-uvicorn api.main:app --reload --port 8000
+./launch.sh --api
 ```
 
-### 4. Frontend
+### 3. Frontend
 
 ```bash
-cd frontend
-npm install
-npm run dev        # http://localhost:3000
+./launch.sh --frontend   # http://localhost:3000
 ```
 
 ---
@@ -355,11 +351,11 @@ npm run dev        # http://localhost:3000
 
 | Username | Password | Role |
 |---|---|---|
-| `dr.mehta` | `demo123` | `doctor` |
-| `nurse.priya` | `demo123` | `nurse` |
-| `billing.ravi` | `demo123` | `billing_executive` |
-| `tech.anand` | `demo123` | `technician` |
-| `admin.sys` | `demo123` | `admin` |
+| `dr.mehta` | `doctor123` | `doctor` |
+| `nurse.priya` | `nurse123` | `nurse` |
+| `billing.ravi` | `billing123` | `billing_executive` |
+| `tech.anand` | `tech123` | `technician` |
+| `admin.sys` | `admin123` | `admin` |
 
 > Demo credentials are for local evaluation only.
 
@@ -385,7 +381,7 @@ The router detects analytical keywords (`billing codes`, `claim amounts`) and cl
 **Where it's blocked:** `node_sql_denied` in `rag/graph.py` — before any data is retrieved.
 
 1. Logging as Nurse:
-![alt text](image-4.png)
+![Nurse RBAC test](docs/images/rbac-test-nurse.png)
 
 ---
 
@@ -403,7 +399,7 @@ Despite the prompt claiming admin identity, the role is always read from the sig
 **Where it's blocked:** Qdrant `query_filter` (`MatchAny` on `access_roles`) — restricted chunks never leave the vector database.
 
 2. Logging in as technician:
-![alt text](image-5.png)
+![Technician RBAC test](docs/images/rbac-test-technician.png)
 
 ---
 
@@ -421,7 +417,7 @@ Routes to RAG. Qdrant applies `access_roles MatchAny ["billing_executive"]`. Nur
 **Where it's blocked:** Qdrant `query_filter` — nursing chunks excluded before retrieval; LLM system prompt enforces the access-aware refusal message.
 
 3. Logging in as billing executive:
-![alt text](image-3.png)
+![Billing executive RBAC test](docs/images/rbac-test-billing-executive.png)
 
 ---
 
@@ -441,7 +437,7 @@ In every case the restricted chunks are **never returned to the application** an
 
 | Assignment suggestion | Used here | Why |
 |---|---|---|
-| Generic "cloud-hosted LLM inference API" | **Hugging Face Inference API** | Keeps the stack in one ecosystem; swappable via LangChain's chat-model interface |
+| Generic "cloud-hosted LLM inference API" | **Groq** `llama-3.1-8b-instant` | Ultra-low latency; swappable via `LLM_PROVIDER` env var (Anthropic / OpenAI / HF also supported) |
 | Embeddings / reranker (unspecified) | **Hugging Face** `bge-small-en-v1.5` + `bge-reranker-base` | Strong open models, run locally/offline, no per-call cost |
 | Pipeline orchestration (unspecified) | **LangGraph** | Makes routing, RBAC refusal, and SQL gating explicit, traceable graph nodes |
 | Sparse retrieval | **BM25** (FastEmbed) | Exactly the keyword method named in the assignment; SPLADE is a drop-in upgrade |
